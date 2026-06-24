@@ -6,16 +6,16 @@ A DIY security robot built on ROS 2 Humble featuring real-time SLAM mapping, LiD
 
 ## Hardware
 
-| Component | Model | Connection |
-|-----------|-------|------------|
-| Microcontroller | STM32F103 (Blue Pill) | UART GPIO to Pi (115200 baud) |
-| Motor driver | L298N H-Bridge | STM32 PWM + direction pins |
-| Wheels | 4× Mecanum wheel + DC motor (no encoder) | L298N |
-| SBC | Raspberry Pi 4 Model B | — |
-| LiDAR | RPLidar A1M8 (360°, 10m) | USB Micro-B → Pi |
-| IMU | MPU6050 GY-521 | I2C (SDA/SCL GPIO) → Pi |
-| Camera | IMX219 (CSI) | Ribbon cable → Pi |
-| Power | 12V LiPo battery | DC-DC step-down → 5V for Pi; direct 12V for L298N |
+| Component       | Model                                    | Connection                                        |
+| --------------- | ---------------------------------------- | ------------------------------------------------- |
+| Microcontroller | STM32F103 (Blue Pill)                    | UART GPIO to Pi (115200 baud)                     |
+| Motor driver    | L298N H-Bridge                           | STM32 PWM + direction pins                        |
+| Wheels          | 4× Mecanum wheel + DC motor (no encoder) | L298N                                             |
+| SBC             | Raspberry Pi 4 Model B                   | —                                                 |
+| LiDAR           | RPLidar A1M8 (360°, 10m)                 | USB Micro-B → Pi                                  |
+| IMU             | MPU6050 GY-521                           | I2C (SDA/SCL GPIO) → Pi                           |
+| Camera          | IMX219 (CSI)                             | Ribbon cable → Pi                                 |
+| Power           | 12V LiPo battery                         | DC-DC step-down → 5V for Pi; direct 12V for L298N |
 
 ### Wiring summary
 
@@ -119,6 +119,7 @@ Robot/
 Controls 4 mecanum wheels via L298N. Receives one-word text commands over UART at 115200 baud from the Raspberry Pi.
 
 **Pins:**
+
 - `ENA=PA0, ENB=PA1` — PWM enable for left/right motor pairs
 - `IN1=PA2, IN2=PA3` — left motor direction
 - `IN3=PA4, IN4=PA5` — right motor direction
@@ -126,18 +127,18 @@ Controls 4 mecanum wheels via L298N. Receives one-word text commands over UART a
 
 **Commands received from Pi:**
 
-| Command | Action |
-|---------|--------|
-| `ON` / `UP` | Forward |
-| `BACK` | Backward |
-| `LEFT` | Rotate left |
-| `RIGHT` | Rotate right |
-| `UP_LEFT` | Forward-left diagonal |
-| `UP_RIGHT` | Forward-right diagonal |
-| `DOWN_LEFT` | Backward-left diagonal |
-| `DOWN_RIGHT` | Backward-right diagonal |
-| `AUTO` | Autonomous obstacle avoidance (millis-based state machine) |
-| `MANUAL` / `OFF` | Stop |
+| Command          | Action                                                     |
+| ---------------- | ---------------------------------------------------------- |
+| `ON` / `UP`      | Forward                                                    |
+| `BACK`           | Backward                                                   |
+| `LEFT`           | Rotate left                                                |
+| `RIGHT`          | Rotate right                                               |
+| `UP_LEFT`        | Forward-left diagonal                                      |
+| `UP_RIGHT`       | Forward-right diagonal                                     |
+| `DOWN_LEFT`      | Backward-left diagonal                                     |
+| `DOWN_RIGHT`     | Backward-right diagonal                                    |
+| `AUTO`           | Autonomous obstacle avoidance (millis-based state machine) |
+| `MANUAL` / `OFF` | Stop                                                       |
 
 **AUTO mode** uses a non-blocking `millis()` state machine. If an obstacle is detected < 40 cm, the robot backs up then turns right.
 
@@ -183,17 +184,17 @@ This starts: LiDAR → laser filter → IMU driver → motor UART bridge → web
 
 ### Topics published by Pi
 
-| Topic | Type | Rate | Description |
-|-------|------|------|-------------|
+| Topic            | Type        | Rate  | Description                |
+| ---------------- | ----------- | ----- | -------------------------- |
 | `/scan_filtered` | `LaserScan` | 10 Hz | Filtered LiDAR (0.15–12 m) |
-| `/imu/data` | `Imu` | 50 Hz | MPU6050 yaw rate (gyro Z) |
+| `/imu/data`      | `Imu`       | 50 Hz | MPU6050 yaw rate (gyro Z)  |
 
 ### Topics consumed by Pi
 
-| Topic | Type | Description |
-|-------|------|-------------|
-| `/cmd_vel` | `Twist` | Velocity command → UART → STM32 |
-| `/robot_mode` | `String` | `AUTO` or `MANUAL` → STM32 |
+| Topic         | Type     | Description                     |
+| ------------- | -------- | ------------------------------- |
+| `/cmd_vel`    | `Twist`  | Velocity command → UART → STM32 |
+| `/robot_mode` | `String` | `AUTO` or `MANUAL` → STM32      |
 
 ---
 
@@ -262,15 +263,15 @@ chmod +x ~/ros2_ws/start_nav.sh
 
 ### Step 5 — Send navigation goals from dashboard
 
-| Control | Action |
-|---------|--------|
-| **📍 PIN** | Click map to set `NavigateToPose` goal |
-| **✏️ PEN** | Draw a path on the map → `NavigateThroughPoses` |
-| **🗑 ERASE & STOP** | Cancel navigation and stop robot |
-| **Mouse wheel / ＋ / －** | Zoom the map |
-| **⊡ Fit** | Auto-fit map to window |
-| **Space** | Emergency stop |
-| **Arrow keys / WASD** | Manual drive |
+| Control                   | Action                                          |
+| ------------------------- | ----------------------------------------------- |
+| **📍 PIN**                | Click map to set `NavigateToPose` goal          |
+| **✏️ PEN**                | Draw a path on the map → `NavigateThroughPoses` |
+| **🗑 ERASE & STOP**       | Cancel navigation and stop robot                |
+| **Mouse wheel / ＋ / －** | Zoom the map                                    |
+| **⊡ Fit**                 | Auto-fit map to window                          |
+| **Space**                 | Emergency stop                                  |
+| **Arrow keys / WASD**     | Manual drive                                    |
 
 ---
 
@@ -278,32 +279,28 @@ chmod +x ~/ros2_ws/start_nav.sh
 
 Both machines must be on the same local network.
 
-| Setting | Value |
-|---------|-------|
-| `ROS_DOMAIN_ID` | `42` |
-| `RMW_IMPLEMENTATION` | `rmw_cyclonedds_cpp` |
-| Pi hostname | `robotanninh.local` |
-| Computer hostname | `vmuser-virtual-machine.local` |
-| Rosbridge WebSocket | `computer:9090` |
-| Camera stream | `pi:8080/stream.mjpg` |
-| Web dashboard | `pi:8000` |
+| Setting              | Value                          |
+| -------------------- | ------------------------------ |
+| `ROS_DOMAIN_ID`      | `42`                           |
+| `RMW_IMPLEMENTATION` | `rmw_cyclonedds_cpp`           |
+| Pi hostname          | `robotanninh.local`            |
+| Computer hostname    | `vmuser-virtual-machine.local` |
+| Rosbridge WebSocket  | `computer:9090`                |
+| Camera stream        | `pi:8080/stream.mjpg`          |
+| Web dashboard        | `pi:8000`                      |
 
 ---
 
 ## Key Design Decisions
 
-**No wheel encoders** — `rf2o_laser_odometry` computes odometry by matching consecutive LiDAR scans, eliminating the need for wheel encoders. Mecanum wheels slip laterally, making encoder-based odometry unreliable anyway.
+**No wheel encoders** - `rf2o_laser_odometry` computes odometry by matching consecutive LiDAR scans, eliminating the need for wheel encoders. Mecanum wheels slip laterally, making encoder-based odometry unreliable anyway.
 
-**EKF fusion** — `robot_localization` fuses rf2o linear velocity (X axis only) with MPU6050 yaw rate to produce `/odometry/filtered`. Only these two signals are fused; full 6-DOF is unnecessary for a flat-floor 2D robot.
+**EKF fusion** - `robot_localization` fuses rf2o linear velocity (X axis only) with MPU6050 yaw rate to produce `/odometry/filtered`. Only these two signals are fused; full 6-DOF is unnecessary for a flat-floor 2D robot.
 
-**Split compute** — SLAM Toolbox + Nav2 run on the computer to avoid Pi thermal throttling during compute-intensive mapping. All ROS 2 topics bridge transparently via CycloneDDS across WiFi.
+**Split compute** - SLAM Toolbox + Nav2 run on the computer to avoid Pi thermal throttling during compute-intensive mapping. All ROS 2 topics bridge transparently via CycloneDDS across WiFi.
 
-**Deadband matching** — `nav2_params.yaml` sets `deadband_velocity: [0.05, 0.0, 0.15]` to exactly match `LIN_THRESH=0.05` and `ANG_THRESH=0.15` in `uart_bridge.py`, ensuring Nav2 does not generate commands that the UART bridge would silently drop.
+**Deadband matching** - `nav2_params.yaml` sets `deadband_velocity: [0.05, 0.0, 0.15]` to exactly match `LIN_THRESH=0.05` and `ANG_THRESH=0.15` in `uart_bridge.py`, ensuring Nav2 does not generate commands that the UART bridge would silently drop.
 
-**Nav2 10s delay** — `mac_brain.launch.py` delays Nav2 startup by 10 seconds so SLAM Toolbox has time to publish the first `/map` and EKF can establish the `odom→base_link` TF before Nav2 starts querying them.
+**Nav2 10s delay** - `mac_brain.launch.py` delays Nav2 startup by 10 seconds so SLAM Toolbox has time to publish the first `/map` and EKF can establish the `odom→base_link` TF before Nav2 starts querying them.
 
 ---
-
-## License
-
-MIT

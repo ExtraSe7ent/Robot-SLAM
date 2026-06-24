@@ -1,6 +1,6 @@
 # Robot An Ninh — Security Robot with SLAM & Autonomous Navigation
 
-A DIY security robot built on ROS 2 Humble featuring real-time SLAM mapping, LiDAR-based odometry, IMU fusion, autonomous navigation, and a web-based control dashboard. The system runs across two compute layers: a Raspberry Pi 4 for hardware interfacing, and a separate computer (Ubuntu VM) for heavy SLAM and Nav2 algorithms.
+A DIY security robot built on ROS 2 Humble featuring real-time SLAM mapping, LiDAR-based odometry, IMU fusion, autonomous navigation, and a web-based control dashboard. The system runs across two compute layers: a Raspberry Pi 4 for hardware interfacing, and a separate computer (Ubuntu 22) for heavy SLAM and Nav2 algorithms.
 
 ---
 
@@ -28,7 +28,7 @@ Pi I2C (bus 1, 0x68) ────── MPU6050 GY-521
 Pi USB ──────────────────── RPLidar A1M8 → /dev/rplidar
 Pi CSI ──────────────────── IMX219 camera
 
-Pi (WiFi) ←──── ROS 2 CycloneDDS ────→ Computer (Ubuntu VM)
+Pi (WiFi) ←──── ROS 2 CycloneDDS ────→ Computer (Ubuntu 22)
 ```
 
 ---
@@ -45,9 +45,9 @@ Pi (WiFi) ←──── ROS 2 CycloneDDS ────→ Computer (Ubuntu VM)
 │  laser_filter    ─── /scan_filtered (0.15~12 m)            │
 │  uart_bridge.py  ─── /cmd_vel + /robot_mode → STM32        │
 └──────────────────────┬──────────────────────────────────────┘
-                       │ CycloneDDS (ROS_DOMAIN_ID=42)
+                       │ CycloneDDS
 ┌──────────────────────▼──────────────────────────────────────┐
-│                  Computer (Ubuntu VM)                        │
+│                  Computer (Ubuntu 22)                        │
 │                                                             │
 │  rf2o_laser_odometry ─── /odom_rf2o (LiDAR scan matching)  │
 │  robot_localization  ─── /odometry/filtered (EKF fusion)   │
@@ -57,7 +57,7 @@ Pi (WiFi) ←──── ROS 2 CycloneDDS ────→ Computer (Ubuntu VM)
 │  draw_handler        ─── /nav/draw_path → Nav2             │
 │  rosbridge_suite     ─── WebSocket :9090                   │
 └──────────────────────┬──────────────────────────────────────┘
-                       │ WebSocket (roslibjs)
+                       │ WebSocket
 ┌──────────────────────▼──────────────────────────────────────┐
 │              Web Dashboard (Browser)                         │
 │  Live camera · SLAM map · PIN/PEN navigation · Joystick     │
@@ -241,7 +241,7 @@ Edit `~/cyclone_dds.xml` if your Pi hostname differs from `robotanninh.local`.
 ### Step 2 — Start computer (Mapping mode)
 
 ```bash
-# On computer / Ubuntu VM
+# On computer / Ubuntu
 chmod +x ~/ros2_ws/start_mac.sh
 ~/ros2_ws/start_mac.sh
 ```
@@ -255,7 +255,7 @@ Drive the robot around to build the SLAM map. When the map looks complete, click
 ### Step 4 — Navigate with saved map
 
 ```bash
-# On computer / Ubuntu VM
+# On computer / Ubuntu
 chmod +x ~/ros2_ws/start_nav.sh
 ~/ros2_ws/start_nav.sh tang1
 ```

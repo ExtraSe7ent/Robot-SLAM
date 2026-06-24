@@ -39,27 +39,27 @@ Pi (WiFi) ←──── ROS 2 CycloneDDS ────→ Computer (Ubuntu 22)
 ┌─────────────────────────────────────────────────────────────┐
 │                     Raspberry Pi 4                          │
 │                                                             │
-│  cam_stream.py   ─── MJPEG :8080/stream.mjpg               │
-│  mpu6050_driver  ─── /imu/data (50 Hz, yaw rate only)      │
+│  cam_stream.py   ─── MJPEG :8080/stream.mjpg                │
+│  mpu6050_driver  ─── /imu/data (50 Hz, yaw rate only)       │
 │  sllidar_node    ─── /scan (raw)                            │
-│  laser_filter    ─── /scan_filtered (0.15~12 m)            │
-│  uart_bridge.py  ─── /cmd_vel + /robot_mode → STM32        │
+│  laser_filter    ─── /scan_filtered (0.15~12 m)             │
+│  uart_bridge.py  ─── /cmd_vel + /robot_mode → STM32         │
 └──────────────────────┬──────────────────────────────────────┘
                        │ CycloneDDS
 ┌──────────────────────▼──────────────────────────────────────┐
-│                  Computer (Ubuntu 22)                        │
+│                  Computer (Ubuntu 22)                       │
 │                                                             │
-│  rf2o_laser_odometry ─── /odom_rf2o (LiDAR scan matching)  │
-│  robot_localization  ─── /odometry/filtered (EKF fusion)   │
-│  slam_toolbox        ─── /map + TF map→odom                │
-│  nav2_bringup        ─── /cmd_vel (autonomous navigation)  │
-│  pose_republisher    ─── /robot_pose (for web dashboard)   │
-│  draw_handler        ─── /nav/draw_path → Nav2             │
-│  rosbridge_suite     ─── WebSocket :9090                   │
+│  rf2o_laser_odometry ─── /odom_rf2o (LiDAR scan matching)   │
+│  robot_localization  ─── /odometry/filtered (EKF fusion)    │
+│  slam_toolbox        ─── /map + TF map→odom                 │
+│  nav2_bringup        ─── /cmd_vel (autonomous navigation)   │
+│  pose_republisher    ─── /robot_pose (for web dashboard)    │
+│  draw_handler        ─── /nav/draw_path → Nav2              │
+│  rosbridge_suite     ─── WebSocket :9090                    │
 └──────────────────────┬──────────────────────────────────────┘
                        │ WebSocket
 ┌──────────────────────▼──────────────────────────────────────┐
-│              Web Dashboard (Browser)                         │
+│              Web Dashboard (Browser)                        │
 │  Live camera · SLAM map · PIN/PEN navigation · Joystick     │
 └─────────────────────────────────────────────────────────────┘
 ```

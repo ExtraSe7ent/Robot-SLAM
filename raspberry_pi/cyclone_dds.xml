@@ -6,6 +6,7 @@
     </General>
     <Discovery>
       <Peers>
+        <!-- Computer's hostname on the local network -->
         <Peer address="vmuser-virtual-machine.local"/>
       </Peers>
     </Discovery>

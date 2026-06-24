@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-MJPEG Streaming Server using rpicam-vid.
-Runs independently of ROS 2, optimized for low latency and memory safety.
+MJPEG Streaming Server — Camera IMX219 qua rpicam-vid
+- Chạy độc lập, không phụ thuộc ROS 2
+- Stream MJPEG 640x480@30fps tại http://<PI_IP>:8080/stream.mjpg
+- Tự động restart nếu rpicam-vid crash
+- Giới hạn buffer 1 MB để tránh memory leak
 """
 import subprocess
 import threading
@@ -9,23 +12,24 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 WIDTH, HEIGHT, FPS = 640, 480, 30
-BOUNDARY = b'jpgboundary'
-PORT = 8080
-MAX_BUF_SIZE = 1048576 # 1MB limit to prevent memory leak
+BOUNDARY     = b'jpgboundary'
+PORT         = 8080
+MAX_BUF_SIZE = 1048576  # 1 MB
+
 
 class CamStream:
     def __init__(self):
-        self.frame = b''
+        self.frame     = b''
         self.condition = threading.Condition()
-        self.proc = self._start_rpicam()
+        self.proc      = self._start_rpicam()
         threading.Thread(target=self._read_frames, daemon=True).start()
         print(f'[CAM] rpicam-vid started at {WIDTH}x{HEIGHT}@{FPS}fps')
 
     def _start_rpicam(self):
-        """Helper method to start or restart the rpicam-vid process."""
         return subprocess.Popen([
             'rpicam-vid', '-t', '0',
-            '--width', str(WIDTH), '--height', str(HEIGHT),
+            '--width',     str(WIDTH),
+            '--height',    str(HEIGHT),
             '--framerate', str(FPS),
             '--codec', 'mjpeg', '--nopreview', '-o', '-'
         ], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -38,15 +42,11 @@ class CamStream:
                 self._restart()
                 buf = b''
                 continue
-            
             buf += chunk
-            
-            # Memory leak protection: clear buffer if it grows too large
             if len(buf) > MAX_BUF_SIZE:
-                print('[CAM] Warning: Buffer overflow detected. Flushing buffer.')
+                print('[CAM] Warning: Buffer overflow. Flushing.')
                 buf = b''
                 continue
-                
             while True:
                 start = buf.find(b'\xff\xd8')
                 if start == -1:
@@ -54,14 +54,10 @@ class CamStream:
                 end = buf.find(b'\xff\xd9', start + 2)
                 if end == -1:
                     break
-                    
-                # Extract the complete JPEG frame
                 with self.condition:
-                    self.frame = buf[start:end+2]
+                    self.frame = buf[start:end + 2]
                     self.condition.notify_all()
-                
-                # Truncate buffer to process next frame
-                buf = buf[end+2:]
+                buf = buf[end + 2:]
 
     def _restart(self):
         print('[CAM] rpicam-vid crashed, restarting in 2s...')
@@ -71,21 +67,25 @@ class CamStream:
             pass
         time.sleep(2)
         self.proc = self._start_rpicam()
-        print('[CAM] rpicam-vid restarted successfully')
+        print('[CAM] rpicam-vid restarted.')
 
     def get_frame(self):
         with self.condition:
-            # Wait up to 1 second for a new frame
             self.condition.wait(timeout=1.0)
             return self.frame
 
+
 cam = CamStream()
+
 
 class StreamHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.split('?')[0] == '/stream.mjpg':
             self.send_response(200)
-            self.send_header('Content-Type', f'multipart/x-mixed-replace; boundary={BOUNDARY.decode()}')
+            self.send_header(
+                'Content-Type',
+                f'multipart/x-mixed-replace; boundary={BOUNDARY.decode()}'
+            )
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             try:
@@ -97,21 +97,20 @@ class StreamHandler(BaseHTTPRequestHandler):
                         self.wfile.write(frame)
                         self.wfile.write(b'\r\n')
             except Exception:
-                # Client disconnected
-                pass
+                pass  # client disconnected
         else:
             self.send_error(404)
 
     def log_message(self, *args):
-        # Disable default logging to keep terminal output clean
-        pass
+        pass  # suppress access logs
+
 
 if __name__ == '__main__':
-    print(f'[CAM] MJPEG server is running: http://0.0.0.0:{PORT}/stream.mjpg')
+    print(f'[CAM] MJPEG server: http://0.0.0.0:{PORT}/stream.mjpg')
     try:
         ThreadingHTTPServer(('', PORT), StreamHandler).serve_forever()
     except KeyboardInterrupt:
-        print("\n[CAM] Shutting down...")
+        print('\n[CAM] Shutting down...')
         try:
             cam.proc.kill()
         except Exception:

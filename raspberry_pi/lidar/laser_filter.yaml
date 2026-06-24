@@ -1,3 +1,4 @@
+# Lọc bỏ điểm quét LiDAR quá gần (nhiễu chassis < 15cm) hoặc quá xa (> 12m)
 scan_to_scan_filter_chain:
   ros__parameters:
     filter1:

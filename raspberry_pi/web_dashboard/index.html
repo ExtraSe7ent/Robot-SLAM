@@ -6,7 +6,7 @@
   <title>Robot An Ninh — SLAM Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
-  <script src="/roslib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
   <style>
     :root {
       --bg:#080c10; --surface:#0d1117; --panel:#111820; --border:#1e2d3d;
@@ -65,8 +65,6 @@
     #modal-close{margin-left:auto;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--muted);font-family:var(--mono);font-size:9px;padding:4px 8px;cursor:pointer;}
     #modal-canvas{flex:1;display:block;width:100%;min-height:0;image-rendering:pixelated;}
     #map-zoom-ctrl{position:absolute;bottom:12px;right:12px;display:flex;gap:4px;}
-    #map-modal.open{position:relative;}
-    #map-modal{position:absolute;}
 
     aside{width:210px;display:flex;flex-direction:column;background:var(--surface);overflow-y:auto;flex-shrink:0;}
     aside::-webkit-scrollbar{width:3px;}

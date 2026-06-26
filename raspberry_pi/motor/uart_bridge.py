@@ -20,20 +20,14 @@ BAUD        = 115200
 
 
 def twist_to_cmd(lx: float, az: float) -> str:
-    """Chuyển Twist sang lệnh text cho STM32 (8 hướng + dừng)."""
     fwd  = lx >  LIN_THRESH
     back = lx < -LIN_THRESH
     lft  = az >  ANG_THRESH
     rgt  = az < -ANG_THRESH
-
-    if fwd  and lft: return 'UP_LEFT'
-    if fwd  and rgt: return 'UP_RIGHT'
-    if fwd:          return 'ON'
-    if back and lft: return 'DOWN_LEFT'
-    if back and rgt: return 'DOWN_RIGHT'
-    if back:         return 'BACK'
-    if lft:          return 'LEFT'
-    if rgt:          return 'RIGHT'
+    if lft:  return 'LEFT'
+    if rgt:  return 'RIGHT'
+    if fwd:  return 'ON'
+    if back: return 'BACK'
     return 'OFF'
 
 

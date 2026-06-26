@@ -1,68 +1,65 @@
 #!/bin/bash
-# start_nav.sh — Khởi động chế độ NAVIGATION (dùng map đã lưu)
-# Cách dùng: ./start_nav.sh <tên_map>
-# Ví dụ:     ./start_nav.sh tang1
-# Map phải được lưu trước bằng nút "Serialize map" trên dashboard
+MAP_NAME=${1:-"my_map"}
+echo "=========================================="
+echo "🗺 NAV MODE — Map: $MAP_NAME"
+echo "=========================================="
 
-MAP_NAME="${1:-}"
-
-if [ -z "$MAP_NAME" ]; then
-    echo "Lỗi: cần truyền tên map"
-    echo "Cách dùng: ./start_nav.sh <tên_map>"
-    echo "Ví dụ:     ./start_nav.sh tang1"
+# Check if map file exists
+if [ ! -f "$HOME/ros2_ws/maps/${MAP_NAME}.data" ]; then
+    echo "❌ Not found: ~/ros2_ws/maps/${MAP_NAME}.data"
+    echo ""
+    echo " Available maps:"
+    ls ~/ros2_ws/maps/*.data 2>/dev/null \
+        | xargs -I{} basename {} .data \
+        || echo " (no maps found — please run start_mac.sh to scan a map first)"
     exit 1
 fi
 
-MAP_FILE="$HOME/ros2_ws/maps/${MAP_NAME}.data"
-if [ ! -f "$MAP_FILE" ]; then
-    echo "Lỗi: không tìm thấy map '$MAP_FILE'"
-    echo "Hãy lưu map trước bằng nút 'Serialize map' trên dashboard."
-    exit 1
-fi
-
-echo "=== Robot An Ninh — NAVIGATION MODE ==="
-echo "Sử dụng map: $MAP_NAME"
-
-# Kill tiến trình cũ
-pkill -f "ros2 launch"    2>/dev/null
-pkill -f "slam_toolbox"   2>/dev/null
-pkill -f "rf2o"           2>/dev/null
-pkill -f "rosbridge"      2>/dev/null
-pkill -f "ekf_node"       2>/dev/null
-fuser -k 9090/tcp         2>/dev/null
-sleep 2
+# Kill ALL previous ROS session
+echo "[*] Killing previous ROS session..."
+pkill -f "ros2 launch" 2>/dev/null
+pkill -f "slam_toolbox" 2>/dev/null
+pkill -f "rf2o_laser" 2>/dev/null
+pkill -f "ekf_node" 2>/dev/null
+pkill -f "rosbridge" 2>/dev/null
+fuser -k 9090/tcp 2>/dev/null
+sleep 3
 
 source /opt/ros/humble/setup.bash
 source ~/ros2_ws/install/setup.bash
-
 export ROS_DOMAIN_ID=42
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export CYCLONEDDS_URI=file:///home/vmuser/cyclone_dds.xml
+export GEMINI_API_KEY="AQ.Ab8RN6IlncQq-dja0ztv7swxwWIjD2j0yzxW6QjVoATPIEIHRg"
 
-echo "ROS_DOMAIN_ID=$ROS_DOMAIN_ID"
-echo "Launching mac_brain (navigation with map=$MAP_NAME)..."
-
-ros2 launch mac_brain mac_nav.launch.py map_name:="$MAP_NAME" &
+# Launch full mapping stack (same as start_mac.sh — includes Nav2 after 10s)
+echo "[*] Launching mapping stack..."
+ros2 launch mac_brain mac_brain.launch.py &
 LAUNCH_PID=$!
 
-# Chờ slam_toolbox sẵn sàng để load map
-echo "Chờ slam_toolbox khởi động..."
-sleep 10
+# Wait for slam_toolbox service to be ready, then load map
+(
+    echo "[*] Waiting for slam_toolbox to be ready..."
+    until ros2 service list 2>/dev/null | grep -q "/slam_toolbox/deserialize_map"; do
+        sleep 0.5
+    done
+    sleep 1
+    echo "[*] Loading map: $MAP_NAME"
+    ros2 service call /slam_toolbox/deserialize_map \
+        slam_toolbox/srv/DeserializePoseGraph \
+        "{filename: '/home/vmuser/ros2_ws/maps/$MAP_NAME', \
+        match_type: 0, \
+        initial_pose: {position: {x: 0.0, y: 0.0, z: 0.0}, \
+        orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}"
+    echo "✅ Map loaded! Dashboard will show the map now."
+) &
 
-MAX_WAIT=60; WAITED=0
-until ros2 service list 2>/dev/null | grep -q "slam_toolbox/deserialize_map"; do
-    sleep 2; WAITED=$((WAITED+2))
-    if [ $WAITED -ge $MAX_WAIT ]; then
-        echo "Lỗi: slam_toolbox không sẵn sàng sau ${MAX_WAIT}s"
-        kill $LAUNCH_PID 2>/dev/null
-        exit 1
-    fi
-done
+cleanup() {
+    echo "[*] Shutting down..."
+    kill $LAUNCH_PID 2>/dev/null
+    pkill -f "slam_toolbox" 2>/dev/null
+    exit 0
+}
 
-echo "Đang load map: $MAP_NAME..."
-ros2 service call /slam_toolbox/deserialize_map \
-    slam_toolbox/srv/DeserializePoseGraph \
-    "{filename: '$HOME/ros2_ws/maps/$MAP_NAME', match_type: 1, initial_pose: {x: 0, y: 0, theta: 0}}"
-
-echo "=== Navigation mode đã sẵn sàng ==="
+trap cleanup SIGINT SIGTERM
 wait $LAUNCH_PID

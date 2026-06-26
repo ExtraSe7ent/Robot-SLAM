@@ -82,12 +82,25 @@ def generate_launch_description():
             )
         ]),
 
-        # 7. Draw handler — nhận đường vẽ tay từ web → gửi Nav2
+        # 7. Draw Handler
         Node(
             package='mac_brain',
             executable='draw_handler',
             name='draw_handler',
             output='screen',
+        ),
+
+        # 8. Security AI
+        TimerAction(
+            period=20.0,
+            actions=[
+                Node(
+                    package='mac_brain',
+                    executable='security_ai',
+                    name='security_ai',
+                    output='screen',
+                ),
+            ]
         ),
 
     ])

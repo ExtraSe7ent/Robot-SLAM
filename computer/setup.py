@@ -27,7 +27,8 @@ setup(
     entry_points={
         'console_scripts': [
             'pose_republisher = mac_brain.pose_republisher:main',
-            'draw_handler     = mac_brain.draw_handler:main',
+            'draw_handler = mac_brain.draw_handler:main',
+            'security_ai = mac_brain.security_ai:main',
         ],
     },
 )

@@ -1,6 +1,6 @@
-# Robot An Ninh — Security Robot with SLAM & Autonomous Navigation
+# Robot An Ninh — Security Robot with SLAM, Autonomous Navigation & AI Threat Detection
 
-A DIY security robot built on ROS 2 Humble featuring real-time SLAM mapping, LiDAR-based odometry, IMU fusion, autonomous navigation, and a web-based control dashboard. The system runs across two compute layers: a Raspberry Pi 4 for hardware interfacing, and a separate computer (Ubuntu 22) for heavy SLAM and Nav2 algorithms.
+A DIY security robot built on ROS 2 Humble featuring real-time SLAM mapping, LiDAR-based odometry, IMU fusion, autonomous navigation, AI-powered threat detection (YOLO + Gemini), and a web-based control dashboard. The system runs across two compute layers: a Raspberry Pi 4 for hardware interfacing, and a separate computer (Ubuntu 22 VM) for heavy SLAM, Nav2, and Security AI algorithms.
 
 ---
 
@@ -28,7 +28,7 @@ Pi I2C (bus 1, 0x68) ────── MPU6050 GY-521
 Pi USB ──────────────────── RPLidar A1M8 → /dev/rplidar
 Pi CSI ──────────────────── IMX219 camera
 
-Pi (WiFi) ←──── ROS 2 CycloneDDS ────→ Computer (Ubuntu 22)
+Pi (WiFi) ←──── ROS 2 CycloneDDS ────→ Computer (Ubuntu 22 VM)
 ```
 
 ---
@@ -39,28 +39,30 @@ Pi (WiFi) ←──── ROS 2 CycloneDDS ────→ Computer (Ubuntu 22)
 ┌─────────────────────────────────────────────────────────────┐
 │                     Raspberry Pi 4                          │
 │                                                             │
-│  cam_stream.py   ─── MJPEG :8080/stream.mjpg                │
-│  mpu6050_driver  ─── /imu/data (50 Hz, yaw rate only)       │
+│  cam_stream.py   ─── MJPEG :8080/stream.mjpg               │
+│  mpu6050_driver  ─── /imu/data (50 Hz, yaw rate only)      │
 │  sllidar_node    ─── /scan (raw)                            │
 │  laser_filter    ─── /scan_filtered (0.15~12 m)             │
-│  uart_bridge.py  ─── /cmd_vel + /robot_mode → STM32         │
+│  uart_bridge.py  ─── /cmd_vel + /robot_mode → STM32        │
 └──────────────────────┬──────────────────────────────────────┘
-                       │ CycloneDDS
+                       │ CycloneDDS (WiFi)
 ┌──────────────────────▼──────────────────────────────────────┐
-│                  Computer (Ubuntu 22)                       │
+│                  Computer (Ubuntu 22 VM)                    │
 │                                                             │
-│  rf2o_laser_odometry ─── /odom_rf2o (LiDAR scan matching)   │
-│  robot_localization  ─── /odometry/filtered (EKF fusion)    │
+│  rf2o_laser_odometry ─── /odom_rf2o (LiDAR scan matching)  │
+│  robot_localization  ─── /odometry/filtered (EKF fusion)   │
 │  slam_toolbox        ─── /map + TF map→odom                 │
-│  nav2_bringup        ─── /cmd_vel (autonomous navigation)   │
-│  pose_republisher    ─── /robot_pose (for web dashboard)    │
-│  draw_handler        ─── /nav/draw_path → Nav2              │
+│  nav2_bringup        ─── /cmd_vel (autonomous navigation)  │
+│  pose_republisher    ─── /robot_pose (for web dashboard)   │
+│  draw_handler        ─── /nav/draw_path → Nav2             │
+│  security_ai         ─── YOLO + Gemini → /security/status  │
 │  rosbridge_suite     ─── WebSocket :9090                    │
 └──────────────────────┬──────────────────────────────────────┘
-                       │ WebSocket
+                       │ WebSocket (port 9090)
 ┌──────────────────────▼──────────────────────────────────────┐
-│              Web Dashboard (Browser)                        │
+│              Web Dashboard (Browser on Pi :8000)            │
 │  Live camera · SLAM map · PIN/PEN navigation · Joystick     │
+│  Security AI badge (Safe / Analyzing / DANGEROUS)           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -69,45 +71,46 @@ Pi (WiFi) ←──── ROS 2 CycloneDDS ────→ Computer (Ubuntu 22)
 ## Repository Structure
 
 ```
-Robot/
+Robot-SLAM/
 ├── stm32/
-│   └── Wheel+UltraSonic.ino    # STM32F103 firmware — motor control + ultrasonic
+│   └── Wheel+UltraSonic.ino      # STM32F103 firmware — motor control + ultrasonic
 │
 ├── raspberry_pi/
-│   ├── cyclone_dds.xml          # DDS peer: vmuser-virtual-machine.local
-│   ├── setup.py                 # ROS 2 package: web_pose
-│   ├── start_pi.sh              # One-command Pi startup script
+│   ├── cyclone_dds.xml            # DDS peer: vmuser-virtual-machine.local
+│   ├── setup.py                   # ROS 2 package: web_pose
+│   ├── start_pi.sh                # One-command Pi startup script
 │   ├── launch/
-│   │   └── robot_bringup.launch.py  # LiDAR + IMU + motor bridge
+│   │   └── robot_bringup.launch.py    # LiDAR + filter + TFs + IMU + motor bridge
 │   ├── lidar/
-│   │   └── laser_filter.yaml    # Range filter: 0.15m – 12m
+│   │   └── laser_filter.yaml      # Range filter: 0.15m – 12m
 │   ├── imu/
-│   │   └── mpu6050_driver.py    # I2C driver → /imu/data @ 50 Hz
+│   │   └── mpu6050_driver.py      # I2C driver → /imu/data @ 50 Hz
 │   ├── motor/
-│   │   └── uart_bridge.py       # /cmd_vel → UART text commands → STM32
+│   │   └── uart_bridge.py         # /cmd_vel → UART text commands → STM32
 │   ├── camera/
-│   │   └── cam_stream.py        # MJPEG server → :8080/stream.mjpg
+│   │   └── cam_stream.py          # MJPEG server → :8080/stream.mjpg
 │   └── web_dashboard/
-│       └── index.html           # Control dashboard (roslibjs)
+│       └── index.html             # Control dashboard (roslibjs + Security AI badge)
 │
 └── computer/
-    ├── cyclone_dds.xml           # DDS peer: robotanninh.local
-    ├── setup.py                  # ROS 2 package: mac_brain
-    ├── start_mac.sh              # One-command startup: MAPPING mode
-    ├── start_nav.sh              # One-command startup: NAVIGATION mode
+    ├── cyclone_dds.xml             # DDS peer: robotanninh.local
+    ├── setup.py                    # ROS 2 package: mac_brain
+    ├── start_mac.sh                # One-command startup: MAPPING mode
+    ├── start_nav.sh                # One-command startup: NAVIGATION + load saved map
     ├── odometry_ekf/
-    │   └── ekf.yaml              # EKF: rf2o odometry + IMU yaw rate
+    │   └── ekf.yaml                # EKF: rf2o odometry (vx) + IMU yaw rate
     ├── slam/
-    │   ├── slam_params.yaml      # SLAM Toolbox: mapping mode
-    │   └── localization_params.yaml  # SLAM Toolbox: localization mode
+    │   ├── slam_params.yaml        # SLAM Toolbox: mapping mode
+    │   └── localization_params.yaml    # SLAM Toolbox: localization mode
     ├── navigation/
-    │   ├── nav2_params.yaml      # Nav2: RPP controller + costmaps
-    │   └── mac_nav.launch.py     # Launch: navigation with saved map
+    │   ├── nav2_params.yaml        # Nav2: RotationShim + RegulatedPurePursuit
+    │   └── mac_nav.launch.py       # Launch: localization with saved map
     ├── nodes/
-    │   ├── pose_republisher.py   # TF map→base_link → /robot_pose
-    │   └── draw_handler.py       # /nav/draw_path → NavigateThroughPoses
+    │   ├── pose_republisher.py     # TF map→base_link → /robot_pose
+    │   ├── draw_handler.py         # /nav/draw_path → NavigateThroughPoses
+    │   └── security_ai.py          # YOLO11n-pose + Gemini → /security/status
     └── launch/
-        └── mac_brain.launch.py   # Launch: full SLAM + Nav2 stack
+        └── mac_brain.launch.py     # Launch: full SLAM + Nav2 + Security AI stack
 ```
 
 ---
@@ -129,16 +132,12 @@ Controls 4 mecanum wheels via L298N. Receives one-word text commands over UART a
 
 | Command          | Action                                                     |
 | ---------------- | ---------------------------------------------------------- |
-| `ON` / `UP`      | Forward                                                    |
+| `ON`             | Forward                                                    |
 | `BACK`           | Backward                                                   |
 | `LEFT`           | Rotate left                                                |
 | `RIGHT`          | Rotate right                                               |
-| `UP_LEFT`        | Forward-left diagonal                                      |
-| `UP_RIGHT`       | Forward-right diagonal                                     |
-| `DOWN_LEFT`      | Backward-left diagonal                                     |
-| `DOWN_RIGHT`     | Backward-right diagonal                                    |
 | `AUTO`           | Autonomous obstacle avoidance (millis-based state machine) |
-| `MANUAL` / `OFF` | Stop                                                       |
+| `OFF` / `MANUAL` | Stop                                                       |
 
 **AUTO mode** uses a non-blocking `millis()` state machine. If an obstacle is detected < 40 cm, the robot backs up then turns right.
 
@@ -146,41 +145,54 @@ Controls 4 mecanum wheels via L298N. Receives one-word text commands over UART a
 
 ## Raspberry Pi Setup (`raspberry_pi/`)
 
-### Prerequisites
+### 1. Install ROS 2 Humble & dependencies
 
 ```bash
-# ROS 2 Humble
-sudo apt install ros-humble-desktop ros-humble-sllidar-ros \
-  ros-humble-laser-filters ros-humble-rosbridge-suite \
-  python3-smbus
+# ROS 2 Humble base
+sudo apt install ros-humble-ros-base ros-dev-tools
+sudo apt install ros-humble-rosbridge-suite ros-humble-rmw-cyclonedds-cpp
+sudo apt install ros-humble-laser-filters
 
-pip3 install pyserial
-
-# Allow GPIO UART
-sudo raspi-config  # Interface → Serial → disable login shell, enable UART
+# Python libs
+pip3 install smbus2 pyserial
 ```
 
-### ROS 2 package setup
+### 2. Build workspace
 
 ```bash
-mkdir -p ~/ros2_ws/src
-cp -r raspberry_pi ~/ros2_ws/src/web_pose
-cd ~/ros2_ws && colcon build
+mkdir -p ~/ros2_ws/src ~/ros2_ws/config
+cd ~/ros2_ws/src
+git clone https://github.com/Slamtec/sllidar_ros2.git
+# Copy raspberry_pi/ folder as the web_pose package
 ```
-
-### Configuration
-
-Copy `raspberry_pi/cyclone_dds.xml` to `/home/pi/cyclone_dds.xml`.  
-Edit the peer address if your computer hostname differs from `vmuser-virtual-machine.local`.
-
-### One-command start
 
 ```bash
-chmod +x ~/ros2_ws/start_pi.sh
-~/ros2_ws/start_pi.sh
+# Copy configs
+cp raspberry_pi/lidar/laser_filter.yaml ~/ros2_ws/config/
+cp raspberry_pi/cyclone_dds.xml ~/cyclone_dds.xml
+
+cd ~/ros2_ws
+colcon build --packages-select web_pose sllidar_ros2 --symlink-install
+source ~/.bashrc
 ```
 
-This starts: LiDAR → laser filter → IMU driver → motor UART bridge → web server → camera stream.
+### 3. Configure environment
+
+```bash
+echo 'source /opt/ros/humble/setup.bash' >> ~/.bashrc
+echo 'export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp' >> ~/.bashrc
+echo 'export ROS_DOMAIN_ID=42' >> ~/.bashrc
+echo 'export CYCLONEDDS_URI=file:///home/ubuntu/cyclone_dds.xml' >> ~/.bashrc
+```
+
+### 4. One-command start
+
+```bash
+chmod +x ~/start_pi.sh
+~/start_pi.sh
+```
+
+Starts: LiDAR → laser filter → static TFs → IMU driver → UART bridge → web server (`:8000`) → camera stream (`:8080`).
 
 ### Topics published by Pi
 
@@ -200,91 +212,143 @@ This starts: LiDAR → laser filter → IMU driver → motor UART bridge → web
 
 ## Computer Setup (`computer/`)
 
-### Prerequisites
+### 1. Install ROS 2 Humble & dependencies
 
 ```bash
-# Ubuntu 22.04 + ROS 2 Humble
-sudo apt install ros-humble-desktop ros-humble-slam-toolbox \
-  ros-humble-nav2-bringup ros-humble-rosbridge-suite \
-  ros-humble-robot-localization ros-humble-rf2o-laser-odometry \
-  ros-humble-rmw-cyclonedds-cpp
+sudo apt install ros-humble-desktop ros-dev-tools
+sudo apt install ros-humble-slam-toolbox ros-humble-navigation2 \
+  ros-humble-nav2-bringup ros-humble-robot-localization \
+  ros-humble-rmw-cyclonedds-cpp ros-humble-rosbridge-suite -y
+
+# Security AI dependencies
+sudo apt install python3-pip
+pip3 install ultralytics opencv-python requests
+pip3 install "numpy<2" --force-reinstall
+
+# Download YOLO11n-pose model
+wget https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n-pose.pt -O ~/yolo11n-pose.pt
 ```
 
-### ROS 2 package setup
+### 2. Build workspace
 
 ```bash
 mkdir -p ~/ros2_ws/src ~/ros2_ws/config ~/ros2_ws/maps
-cp -r computer ~/ros2_ws/src/mac_brain
+cd ~/ros2_ws/src
+git clone -b humble-devel https://github.com/Adlink-ROS/rf2o_laser_odometry.git
+# Copy computer/ folder as the mac_brain package
 
-# Copy config files
+# Copy configs
 cp computer/odometry_ekf/ekf.yaml           ~/ros2_ws/config/
 cp computer/slam/slam_params.yaml           ~/ros2_ws/config/
 cp computer/slam/localization_params.yaml   ~/ros2_ws/config/
 cp computer/navigation/nav2_params.yaml     ~/ros2_ws/config/
 cp computer/cyclone_dds.xml                 ~/cyclone_dds.xml
 
-cd ~/ros2_ws && colcon build
+cd ~/ros2_ws
+colcon build --packages-select mac_brain rf2o_laser_odometry --symlink-install
+source ~/.bashrc
 ```
 
-Edit `~/cyclone_dds.xml` if your Pi hostname differs from `robotanninh.local`.
+### 3. Configure environment
+
+```bash
+echo 'source /opt/ros/humble/setup.bash' >> ~/.bashrc
+echo 'export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp' >> ~/.bashrc
+echo 'export ROS_DOMAIN_ID=42' >> ~/.bashrc
+echo 'export CYCLONEDDS_URI=file:///home/vmuser/cyclone_dds.xml' >> ~/.bashrc
+echo 'export GEMINI_API_KEY="<your-key>"' >> ~/.bashrc
+```
 
 ---
 
 ## Usage
 
-### Step 1 — Start Pi
+### Step 1 — Start Pi hardware
 
 ```bash
 # On Raspberry Pi
-~/ros2_ws/start_pi.sh
+~/start_pi.sh
 ```
 
 ### Step 2 — Start computer (Mapping mode)
 
 ```bash
-# On computer / Ubuntu
-chmod +x ~/ros2_ws/start_mac.sh
-~/ros2_ws/start_mac.sh
+# On Ubuntu VM
+chmod +x ~/start_mac.sh
+~/start_mac.sh
 ```
 
 ### Step 3 — Open dashboard
 
 Open `http://<pi-ip>:8000` in a browser.
 
-Drive the robot around to build the SLAM map. When the map looks complete, click **💾 Serialize map**, enter a name (e.g. `tang1`).
+Drive the robot around to build the SLAM map. When the map looks good, click **💾 Serialize map** and enter a name (e.g. `living_room`).
 
 ### Step 4 — Navigate with saved map
 
 ```bash
-# On computer / Ubuntu
-chmod +x ~/ros2_ws/start_nav.sh
-~/ros2_ws/start_nav.sh tang1
+# On Ubuntu VM
+chmod +x ~/start_nav.sh
+~/start_nav.sh living_room
 ```
 
-### Step 5 — Send navigation goals from dashboard
+This launches the full brain stack and automatically calls `deserialize_map` once SLAM Toolbox is ready.
+
+### Step 5 — Dashboard controls
 
 | Control                   | Action                                          |
 | ------------------------- | ----------------------------------------------- |
 | **📍 PIN**                | Click map to set `NavigateToPose` goal          |
 | **✏️ PEN**                | Draw a path on the map → `NavigateThroughPoses` |
 | **🗑 ERASE & STOP**       | Cancel navigation and stop robot                |
-| **Mouse wheel / ＋ / －** | Zoom the map                                    |
+| **▶ AUTO NAV**            | Toggle Nav2 autonomous mode via `/robot_mode`   |
+| **Mouse wheel / ＋ / －** | Zoom the SLAM map                               |
 | **⊡ Fit**                 | Auto-fit map to window                          |
 | **Space**                 | Emergency stop                                  |
 | **Arrow keys / WASD**     | Manual drive                                    |
 
 ---
 
+## Security AI (`computer/nodes/security_ai.py`)
+
+Runs on the computer, starts 20 seconds after launch to let SLAM/Nav2 stabilize.
+
+**Pipeline:**
+
+1. **MJPEG capture** — streams from `http://robotanninh.local:8080/stream.mjpg`
+2. **YOLO11n-pose** — local inference, detects persons and estimates 17 keypoints
+3. **Pose heuristics** — flags suspicious postures (raised arms, forward bend, fast movement, wide arm span) without any API call
+4. **Gemini 2.5 Flash** — called only when YOLO flags a suspicious pose, with a 5s cooldown and 500 calls/day limit
+5. **Publish** — `/security/status` (JSON String) every 0.5s
+
+**Dashboard badge states:**
+
+| Badge               | Meaning                                       |
+| ------------------- | --------------------------------------------- |
+| `Security AI: —`    | Node not running yet                          |
+| `Security AI: No person` | No person in frame                       |
+| `Security AI: Safe` | Person detected, normal pose                  |
+| `Security AI: Analyzing...` | Suspicious pose flagged, calling Gemini |
+| `⚠ <reason>`       | Gemini confirmed threat (badge pulses red)    |
+
+**Environment variable required:**
+```bash
+export GEMINI_API_KEY="your-api-key-here"
+```
+
+---
+
 ## Network Configuration
 
-Both machines must be on the same local network.
+Both machines must be on the same local network (WiFi).
 
 | Setting              | Value                          |
 | -------------------- | ------------------------------ |
 | `ROS_DOMAIN_ID`      | `42`                           |
 | `RMW_IMPLEMENTATION` | `rmw_cyclonedds_cpp`           |
-| Pi hostname          | `robotanninh.local`            |
-| Computer hostname    | `vmuser-virtual-machine.local` |
+| Pi hostname          | `robotanninh`                  |
+| Pi mDNS address      | `robotanninh.local`            |
+| Computer mDNS        | `vmuser-virtual-machine.local` |
 | Rosbridge WebSocket  | `computer:9090`                |
 | Camera stream        | `pi:8080/stream.mjpg`          |
 | Web dashboard        | `pi:8000`                      |
@@ -293,14 +357,18 @@ Both machines must be on the same local network.
 
 ## Key Design Decisions
 
-**No wheel encoders** - `rf2o_laser_odometry` computes odometry by matching consecutive LiDAR scans, eliminating the need for wheel encoders. Mecanum wheels slip laterally, making encoder-based odometry unreliable anyway.
+**No wheel encoders** — `rf2o_laser_odometry` computes odometry by matching consecutive LiDAR scans, eliminating the need for wheel encoders. Mecanum wheels slip laterally, making encoder-based odometry unreliable.
 
-**EKF fusion** - `robot_localization` fuses rf2o linear velocity (X axis only) with MPU6050 yaw rate to produce `/odometry/filtered`. Only these two signals are fused; full 6-DOF is unnecessary for a flat-floor 2D robot.
+**EKF fusion** — `robot_localization` fuses rf2o linear velocity (X axis only) with MPU6050 yaw rate to produce `/odometry/filtered`. Only these two signals are fused; full 6-DOF is unnecessary for a flat-floor 2D robot.
 
-**Split compute** - SLAM Toolbox + Nav2 run on the computer to avoid Pi thermal throttling during compute-intensive mapping. All ROS 2 topics bridge transparently via CycloneDDS across WiFi.
+**RotationShim + RegulatedPurePursuit** — `nav2_params.yaml` wraps RPP with `RotationShimController` so the robot first rotates toward the goal heading before translating. This prevents the robot from driving sideways toward waypoints.
 
-**Deadband matching** - `nav2_params.yaml` sets `deadband_velocity: [0.05, 0.0, 0.15]` to exactly match `LIN_THRESH=0.05` and `ANG_THRESH=0.15` in `uart_bridge.py`, ensuring Nav2 does not generate commands that the UART bridge would silently drop.
+**Split compute** — SLAM Toolbox, Nav2, and Security AI run on the computer to avoid Pi thermal throttling. All ROS 2 topics bridge transparently via CycloneDDS over WiFi.
 
-**Nav2 10s delay** - `mac_brain.launch.py` delays Nav2 startup by 10 seconds so SLAM Toolbox has time to publish the first `/map` and EKF can establish the `odom→base_link` TF before Nav2 starts querying them.
+**Two-stage nav startup** — `start_nav.sh` uses the same full `mac_brain.launch.py` stack (not a separate localization launch). After slam_toolbox starts, it calls `deserialize_map` service to load the saved pose graph. This avoids maintaining two separate launch configurations.
+
+**Security AI two-tier filtering** — YOLO pose heuristics filter out obvious normal cases locally for free. Gemini is only called when a pose is flagged as suspicious, reducing API usage to a few hundred calls per day even in busy environments.
+
+**Deadband matching** — `nav2_params.yaml` sets `deadband_velocity: [0.05, 0.0, 0.15]` to match `LIN_THRESH=0.05` and `ANG_THRESH=0.15` in `uart_bridge.py`, ensuring Nav2 never generates commands the UART bridge would silently drop.
 
 ---

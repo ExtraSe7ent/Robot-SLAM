@@ -19,7 +19,7 @@ slam_toolbox:
     debug_logging:            false
     throttle_scans:           1
     transform_publish_period: 0.02
-    map_update_interval:      0.5
+    map_update_interval:      0.25
     resolution:               0.025
     max_laser_range:          10.0
     minimum_time_interval:    0.5
@@ -44,10 +44,10 @@ slam_toolbox:
     loop_match_maximum_variance_coarse:   3.0
     loop_match_minimum_response_coarse:   0.35
     loop_match_minimum_response_fine:     0.45
-    distance_variance_penalty: 0.5
-    angle_variance_penalty:    1.0
-    fine_search_angle_offset:   0.00349
-    coarse_search_angle_offset: 0.349
+    distance_variance_penalty: 0.3
+    angle_variance_penalty:    0.5
+    fine_search_angle_offset:   0.01
+    coarse_search_angle_offset: 0.5
     coarse_angle_resolution:    0.0349
     minimum_angle_penalty:      0.9
     minimum_distance_penalty:   0.5

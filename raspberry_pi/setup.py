@@ -18,9 +18,13 @@ setup(
     zip_safe=True,
     maintainer='ubuntu',
     maintainer_email='ubuntu@todo.todo',
-    description='Robot hardware interface package (LiDAR, IMU, UART→STM32)',
+    description='Web pose package',
     license='Apache-2.0',
-    tests_require=['pytest'],
+    extras_require={
+        'test': [
+            'pytest',
+        ],
+    },
     entry_points={
         'console_scripts': [
             'mpu6050_driver = web_pose.mpu6050_driver:main',

@@ -104,6 +104,19 @@
     .tool-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.12);}
     .erase-btn{background:var(--panel);border:1px solid rgba(233,69,96,.4);border-radius:4px;color:var(--danger);font-family:var(--mono);font-size:9px;letter-spacing:1px;padding:6px 4px;cursor:pointer;text-align:center;width:100%;margin-top:4px;transition:background .12s;}
     .erase-btn:active{background:rgba(233,69,96,.15);}
+    #ai-badge {
+      position: absolute; top: 14px; right: 14px; z-index: 20;
+      font-family: var(--mono); font-size: 10px; letter-spacing: 1px;
+      padding: 5px 10px; border-radius: 4px;
+      transition: background .3s, color .3s, border-color .3s;
+      pointer-events: none;
+    }
+    .ai-idle { background: rgba(13,17,23,.8); color: var(--muted); border: 1px solid var(--border); }
+    .ai-safe { background: rgba(0,255,136,.12); color: var(--accent2); border: 1px solid rgba(0,255,136,.4); }
+    .ai-pose { background: rgba(255,204,0,.12); color: #ffcc00; border: 1px solid rgba(255,204,0,.4); }
+    .ai-danger { background: rgba(233,69,96,.2); color: var(--danger); border: 1px solid rgba(233,69,96,.6);
+      animation: pulse-red 1s ease-in-out infinite; }
+    @keyframes pulse-red { 0%,100%{opacity:1} 50%{opacity:.55} }
   </style>
 </head>
 <body>
@@ -120,6 +133,7 @@
 <main>
   <div class="cam-area">
     <span class="view-label">▸ CAMERA · LIVE</span>
+    <div id="ai-badge" class="ai-idle">Security AI: —</div>
     <div class="camera-offline" id="cam-offline">
       <div class="icon">📷</div><p>camera offline</p>
     </div>
@@ -432,6 +446,27 @@ function subscribeTopics() {
       const latest=msg.status_list[msg.status_list.length-1];
       if(latest.status===4) document.getElementById('btn-erase').click();
     }
+  });
+
+  topics.aiStatus = new ROSLIB.Topic({ ros, name:'/security/status', messageType:'std_msgs/String' });
+  topics.aiStatus.subscribe(msg => {
+    try {
+      const d = JSON.parse(msg.data);
+      const badge = document.getElementById('ai-badge');
+      if (!d.person) {
+        badge.className = 'ai-idle';
+        badge.textContent = 'Security AI: No person';
+      } else if (d.is_suspicious) {
+        badge.className = 'ai-danger';
+        badge.textContent = '⚠ ' + (d.reason || 'DANGEROUS');
+      } else if (d.pose_flagged) {
+        badge.className = 'ai-pose';
+        badge.textContent = 'Security AI: Analyzing...';
+      } else {
+        badge.className = 'ai-safe';
+        badge.textContent = 'Security AI: ' + (d.reason || 'Safe');
+      }
+    } catch(e) {}
   });
 }
 

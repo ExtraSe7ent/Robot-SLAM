@@ -1,4 +1,4 @@
-# Robot An Ninh — Security Robot with SLAM, Autonomous Navigation & AI Threat Detection
+# Security Robot - Security Robot with SLAM, Autonomous Navigation & AI Threat Detection
 
 A DIY security robot built on ROS 2 Humble featuring real-time SLAM mapping, LiDAR-based odometry, IMU fusion, autonomous navigation, AI-powered threat detection (YOLO + Gemini), and a web-based control dashboard. The system runs across two compute layers: a Raspberry Pi 4 for hardware interfacing, and a separate computer (Ubuntu 22 VM) for heavy SLAM, Nav2, and Security AI algorithms.
 
@@ -39,23 +39,23 @@ Pi (WiFi) ←──── ROS 2 CycloneDDS ────→ Computer (Ubuntu 22 V
 ┌─────────────────────────────────────────────────────────────┐
 │                     Raspberry Pi 4                          │
 │                                                             │
-│  cam_stream.py   ─── MJPEG :8080/stream.mjpg               │
-│  mpu6050_driver  ─── /imu/data (50 Hz, yaw rate only)      │
+│  cam_stream.py   ─── MJPEG :8080/stream.mjpg                │
+│  mpu6050_driver  ─── /imu/data (50 Hz, yaw rate only)       │
 │  sllidar_node    ─── /scan (raw)                            │
 │  laser_filter    ─── /scan_filtered (0.15~12 m)             │
-│  uart_bridge.py  ─── /cmd_vel + /robot_mode → STM32        │
+│  uart_bridge.py  ─── /cmd_vel + /robot_mode → STM32         │
 └──────────────────────┬──────────────────────────────────────┘
                        │ CycloneDDS (WiFi)
 ┌──────────────────────▼──────────────────────────────────────┐
 │                  Computer (Ubuntu 22 VM)                    │
 │                                                             │
-│  rf2o_laser_odometry ─── /odom_rf2o (LiDAR scan matching)  │
-│  robot_localization  ─── /odometry/filtered (EKF fusion)   │
+│  rf2o_laser_odometry ─── /odom_rf2o (LiDAR scan matching)   │
+│  robot_localization  ─── /odometry/filtered (EKF fusion)    │
 │  slam_toolbox        ─── /map + TF map→odom                 │
-│  nav2_bringup        ─── /cmd_vel (autonomous navigation)  │
-│  pose_republisher    ─── /robot_pose (for web dashboard)   │
-│  draw_handler        ─── /nav/draw_path → Nav2             │
-│  security_ai         ─── YOLO + Gemini → /security/status  │
+│  nav2_bringup        ─── /cmd_vel (autonomous navigation)   │
+│  pose_republisher    ─── /robot_pose (for web dashboard)    │
+│  draw_handler        ─── /nav/draw_path → Nav2              │
+│  security_ai         ─── YOLO + Gemini → /security/status   │
 │  rosbridge_suite     ─── WebSocket :9090                    │
 └──────────────────────┬──────────────────────────────────────┘
                        │ WebSocket (port 9090)
@@ -323,15 +323,16 @@ Runs on the computer, starts 20 seconds after launch to let SLAM/Nav2 stabilize.
 
 **Dashboard badge states:**
 
-| Badge               | Meaning                                       |
-| ------------------- | --------------------------------------------- |
-| `Security AI: —`    | Node not running yet                          |
-| `Security AI: No person` | No person in frame                       |
-| `Security AI: Safe` | Person detected, normal pose                  |
-| `Security AI: Analyzing...` | Suspicious pose flagged, calling Gemini |
-| `⚠ <reason>`       | Gemini confirmed threat (badge pulses red)    |
+| Badge                       | Meaning                                    |
+| --------------------------- | ------------------------------------------ |
+| `Security AI: —`            | Node not running yet                       |
+| `Security AI: No person`    | No person in frame                         |
+| `Security AI: Safe`         | Person detected, normal pose               |
+| `Security AI: Analyzing...` | Suspicious pose flagged, calling Gemini    |
+| `⚠ <reason>`                | Gemini confirmed threat (badge pulses red) |
 
 **Environment variable required:**
+
 ```bash
 export GEMINI_API_KEY="your-api-key-here"
 ```

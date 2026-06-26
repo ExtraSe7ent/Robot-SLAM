@@ -90,9 +90,9 @@ def generate_launch_description():
             output='screen',
         ),
 
-        # 8. Security AI
+        # 8. Security AI 
         TimerAction(
-            period=20.0,
+            period=3.0,
             actions=[
                 Node(
                     package='mac_brain',

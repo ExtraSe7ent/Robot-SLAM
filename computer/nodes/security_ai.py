@@ -11,6 +11,7 @@ from rclpy.node import Node
 import cv2, numpy as np, threading, time, requests, base64, json, os, queue
 from std_msgs.msg import String
 from ultralytics import YOLO
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
 class SecurityAI(Node):
@@ -62,9 +63,14 @@ class SecurityAI(Node):
         self._api_date     = ''
         self._last_gemini_t = 0.0
 
+        # Annotated MJPEG stream state (must init before threads start)
+        self._annotated_frame     = b''
+        self._annotated_condition = threading.Condition()
+
         threading.Thread(target=self._capture_loop, daemon=True).start()
         threading.Thread(target=self._yolo_loop,    daemon=True).start()
         threading.Thread(target=self._gemini_loop,  daemon=True).start()
+        threading.Thread(target=self._mjpeg_server_loop, daemon=True).start()
         self.create_timer(0.5, self._publish)
 
         self.get_logger().info(
@@ -185,6 +191,14 @@ class SecurityAI(Node):
                         self.show_window = False
                         self.get_logger().warn('cv2.imshow failed → disabling window.')
 
+                # Push annotated frame to MJPEG stream
+                annotated = results[0].plot()
+                ok_enc, buf_enc = cv2.imencode('.jpg', annotated, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                if ok_enc:
+                    with self._annotated_condition:
+                        self._annotated_frame = buf_enc.tobytes()
+                        self._annotated_condition.notify_all()
+
                 has_person      = False
                 best_conf       = 0.0
                 pose_suspicious = False
@@ -224,6 +238,41 @@ class SecurityAI(Node):
                         self._best_jpg_b64 = ''
             except Exception as ex:
                 self.get_logger().warn(f'YOLO error: {ex}', throttle_duration_sec=5.0)
+
+    # ====================================================================
+    # MJPEG SERVER — stream annotated frames on port 8082
+    # ====================================================================
+    def _mjpeg_server_loop(self):
+        node_ref = self
+
+        class _Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path.split('?')[0] != '/annotated.mjpg':
+                    self.send_error(404); return
+                self.send_response(200)
+                self.send_header('Content-Type',
+                                 'multipart/x-mixed-replace; boundary=jpgboundary')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Cache-Control', 'no-cache')
+                self.end_headers()
+                try:
+                    while True:
+                        with node_ref._annotated_condition:
+                            node_ref._annotated_condition.wait(timeout=1.0)
+                            frame = node_ref._annotated_frame
+                        if frame:
+                            self.wfile.write(b'--jpgboundary\r\n')
+                            self.wfile.write(b'Content-Type: image/jpeg\r\n\r\n')
+                            self.wfile.write(frame)
+                            self.wfile.write(b'\r\n')
+                except Exception:
+                    pass  # client disconnected
+
+            def log_message(self, *args):
+                pass  # suppress access logs
+
+        self.get_logger().info('Annotated MJPEG server on port 8082 → /annotated.mjpg')
+        ThreadingHTTPServer(('', 8082), _Handler).serve_forever()
 
     # ====================================================================
     # GEMINI LOOP — Cloud verification, only when pose flagged

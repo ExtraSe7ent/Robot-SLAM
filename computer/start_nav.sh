@@ -30,7 +30,7 @@ source ~/ros2_ws/install/setup.bash
 export ROS_DOMAIN_ID=42
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export CYCLONEDDS_URI=file:///home/vmuser/cyclone_dds.xml
-export GEMINI_API_KEY="AQ.Ab8RN6IlncQq-dja0ztv7swxwWIjD2j0yzxW6QjVoATPIEIHRg"
+export GEMINI_API_KEY="XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
 # Launch full mapping stack (same as start_mac.sh — includes Nav2 after 10s)
 echo "[*] Launching mapping stack..."
